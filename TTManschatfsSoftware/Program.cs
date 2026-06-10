@@ -6,11 +6,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container
 builder.Services.AddControllers();
 
-// Configure Entity Framework Core with SQLite
+// Configure Entity Framework Core with PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Data Source=tischtennis.db";
+    ?? "Host=localhost;Database=tt_verein;Username=postgres;Password=password";
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(connectionString)
+    options.UseNpgsql(connectionString)
 );
 
 // Add CORS for frontend
