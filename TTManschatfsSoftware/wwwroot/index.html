@@ -1,0 +1,394 @@
+﻿<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tischtennis Spartenplaner</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Hauptnavigation">
+        <div class="brand">
+          <div class="brand-mark">TT</div>
+          <div>
+            <strong>Spartenplaner</strong>
+            <span>Saison 2026/27</span>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="dashboard">Übersicht</button>
+          <button class="nav-item" data-view="players">Spieler</button>
+          <button class="nav-item" data-view="season-planning">Saisonplanung</button>
+          <button class="nav-item" data-view="teams">Mannschaften</button>
+          <button class="nav-item" data-view="calendar">Kalender</button>
+          <button class="nav-item" data-view="fixtures">Punktspiele</button>
+          <button class="nav-item" data-view="blocks">Sperrtermine</button>
+          <button class="nav-item" data-view="settings">Einstellungen</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Tischtennissparte</p>
+            <h1 id="view-title">Übersicht</h1>
+          </div>
+          <div class="top-actions">
+            <button class="icon-button" id="reset-data" title="Beispieldaten wiederherstellen" aria-label="Beispieldaten wiederherstellen">&#8634;</button>
+            <button class="primary-button" id="open-dialog">+ Neuer Eintrag</button>
+          </div>
+        </header>
+
+        <section id="dashboard" class="view active">
+          <div class="metrics">
+            <article>
+              <span>Aktive Spieler</span>
+              <strong id="metric-players">0</strong>
+            </article>
+            <article>
+              <span>Mannschaften</span>
+              <strong id="metric-teams">0</strong>
+            </article>
+            <article>
+              <span>Offene Spieltermine</span>
+              <strong id="metric-fixtures">0</strong>
+            </article>
+            <article>
+              <span>Sperrtermine</span>
+              <strong id="metric-blocks">0</strong>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel wide">
+              <div class="panel-head">
+                <h2>Nächste Punktspiele</h2>
+                <span id="fixture-count-label"></span>
+              </div>
+              <div id="upcoming-fixtures" class="stack"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>QTTR Spitze</h2>
+              </div>
+              <div id="top-players" class="stack compact"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Planungsrisiken</h2>
+              </div>
+              <div id="risk-list" class="stack compact"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Zuletzt geändert</h2>
+              </div>
+              <div id="activity-list" class="stack compact"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="players" class="view">
+          <div class="toolbar">
+            <input id="player-search" type="search" placeholder="Spieler suchen" />
+            <select id="player-team-filter" aria-label="Mannschaft filtern"></select>
+            <select id="player-status-filter" aria-label="Status filtern">
+              <option value="all">Alle Status</option>
+              <option value="aktiv">aktiv</option>
+              <option value="RES">RES</option>
+              <option value="Ersatz">Ersatz</option>
+              <option value="Jugend">Jugend</option>
+              <option value="passiv">passiv</option>
+            </select>
+            <select id="player-sort" aria-label="Spieler sortieren">
+              <option value="qttr-desc">QTTR absteigend</option>
+              <option value="qttr-asc">QTTR aufsteigend</option>
+              <option value="name-asc">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+              <option value="status-asc">Status</option>
+              <option value="team-asc">Mannschaft</option>
+            </select>
+            <button class="small-button" id="open-player-paste" type="button">Spielerliste einfügen</button>
+          </div>
+          <div id="player-bulk-bar" class="bulk-bar" hidden>
+            <span class="badge" id="player-selection-count">0 markiert</span>
+            <select id="bulk-player-status" aria-label="Status für markierte Spieler">
+              <option value="">Status setzen</option>
+              <option value="aktiv">aktiv</option>
+              <option value="RES">RES</option>
+              <option value="Ersatz">Ersatz</option>
+              <option value="Jugend">Jugend</option>
+              <option value="passiv">passiv</option>
+            </select>
+            <input id="bulk-player-qttr-date" type="date" aria-label="QTTR-Stichtag für markierte Spieler" />
+            <input id="bulk-player-note" type="text" placeholder="Saisonnotiz" aria-label="Saisonnotiz für markierte Spieler" />
+            <button class="small-button" id="apply-player-bulk" type="button">Übernehmen</button>
+            <button class="danger-button" id="delete-selected-players" type="button">Markierte löschen</button>
+            <button class="small-button" id="clear-player-selection" type="button">Auswahl aufheben</button>
+          </div>
+          <div id="player-import-preview" class="import-preview" hidden></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><input id="select-all-players" type="checkbox" aria-label="Alle sichtbaren Spieler markieren" /></th>
+                  <th>#</th>
+                  <th>Name</th>
+                  <th>QTTR</th>
+                  <th>Status</th>
+                  <th>Notiz</th>
+                  <th>Mannschaft</th>
+                  <th>Sperrtermine</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="players-table"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="season-planning" class="view">
+          <div class="toolbar">
+            <button class="primary-button" id="print-season-plan" type="button">Saisonplanung drucken</button>
+          </div>
+          <section class="panel season-assistant-panel">
+            <div class="panel-head">
+              <h2>Saison-Assistent</h2>
+              <span class="panel-head-actions">
+                <span id="season-assistant-summary" class="badge">0/6 fertig</span>
+                <button class="small-button" id="toggle-season-assistant" type="button">Minimieren</button>
+              </span>
+            </div>
+            <div id="season-assistant-steps" class="season-assistant-steps"></div>
+          </section>
+          <section class="panel season-check-panel">
+            <div class="panel-head">
+              <h2>Vor Saisonstart prüfen</h2>
+              <span id="season-check-summary" class="badge">0 offen</span>
+            </div>
+            <div id="season-check-list" class="season-check-list"></div>
+          </section>
+          <div class="planning-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Mannschaften</h2>
+              </div>
+              <div id="planning-teams" class="stack compact"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Aufgaben</h2>
+              </div>
+              <div id="planning-tasks" class="stack compact"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Spieler ohne Mannschaft</h2>
+              </div>
+              <div id="planning-unassigned" class="stack compact"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Kritische Kalendertermine</h2>
+              </div>
+              <div id="planning-calendar-risks" class="stack compact"></div>
+            </section>
+            <section class="panel wide-planning">
+              <div class="panel-head">
+                <h2>Terminprüfung</h2>
+              </div>
+              <div id="planning-fixture-checks" class="stack compact"></div>
+            </section>
+            <section class="panel wide-planning">
+              <div class="panel-head">
+                <h2>Wochenübersicht</h2>
+              </div>
+              <div id="planning-weekly-fixtures" class="stack compact"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="teams" class="view">
+          <div class="toolbar">
+            <button class="primary-button" id="new-team">+ Mannschaft erstellen</button>
+          </div>
+          <section class="panel ttvn-panel">
+            <div class="panel-head">
+              <h2>TTVN-Prüfung</h2>
+              <span class="badge">Q-TTR: 11.05 / 11.12</span>
+            </div>
+            <div id="ttvn-check-list" class="stack compact"></div>
+          </section>
+          <div id="teams-list" class="team-grid"></div>
+        </section>
+
+        <section id="calendar" class="view">
+          <div class="toolbar">
+            <select id="calendar-team-filter" aria-label="Kalender nach Mannschaft filtern"></select>
+            <select id="calendar-hint-filter" aria-label="Kalender nach Hinweisen filtern">
+              <option value="all">Alle Tage</option>
+              <option value="problems">Probleme</option>
+              <option value="too-few">zu wenig Spieler</option>
+              <option value="no-hall">keine Halle</option>
+              <option value="breaks">Ferien/Feiertage</option>
+              <option value="fixtures">Punktspiele</option>
+            </select>
+            <div class="column-toggle-group" aria-label="Kalenderspalten">
+              <label><input class="calendar-column-toggle" data-column="substitute" type="checkbox" checked />Ersatz</label>
+              <label><input class="calendar-column-toggle" data-column="break" type="checkbox" checked />Ferien</label>
+              <label><input class="calendar-column-toggle" data-column="fixture" type="checkbox" checked />Spiel</label>
+              <label><input class="calendar-column-toggle" data-column="hints" type="checkbox" checked />Hinweise</label>
+            </div>
+            <span class="badge" id="calendar-period-label">Rückrunde 25/26</span>
+            <span class="badge ok">4+ Spieler</span>
+            <span class="badge warn">3 Spieler</span>
+            <span class="badge danger">0-2 Spieler</span>
+            <span class="fixture-legend-chip fixture-offen">Offen</span>
+            <span class="fixture-legend-chip fixture-geplant">Geplant</span>
+            <span class="fixture-legend-chip fixture-bestaetigt">Bestätigt</span>
+            <button class="small-button" id="print-calendar-plan" type="button">Planung drucken</button>
+          </div>
+          <div class="calendar-layout">
+            <div class="calendar-table-wrap">
+              <table class="calendar-table">
+                <thead id="calendar-head"></thead>
+                <tbody id="calendar-body"></tbody>
+              </table>
+            </div>
+            <aside class="calendar-side">
+              <section class="calendar-summary">
+                <h2>mögliche Heimspiele 19:30 Uhr</h2>
+                <div id="home-options" class="option-grid home-grid"></div>
+              </section>
+              <section class="calendar-summary">
+                <h2>mögliche Auswärtsspiele</h2>
+                <div id="away-options" class="option-grid away-grid"></div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section id="fixtures" class="view">
+          <div class="toolbar">
+            <button class="primary-button" id="new-fixture">+ Punktspiel erstellen</button>
+            <select id="fixture-team-filter" aria-label="Punktspiele nach Mannschaft filtern"></select>
+            <select id="fixture-status-filter" aria-label="Punktspiele nach Status filtern">
+              <option value="all">Alle Status</option>
+              <option value="offen">Offen</option>
+              <option value="geplant">Geplant</option>
+              <option value="bestaetigt">Bestätigt</option>
+            </select>
+          </div>
+          <div id="fixture-board" class="fixture-board"></div>
+        </section>
+
+        <section id="blocks" class="view">
+          <div id="blocks-list" class="block-grid"></div>
+        </section>
+
+        <section id="settings" class="view">
+          <div class="settings-layout">
+            <form id="season-form" class="settings-panel">
+              <h2>Saisonzeitraum</h2>
+              <label>Name<input required name="label" placeholder="Rückrunde 25/26" /></label>
+              <label>Start<input required name="start" type="date" /></label>
+              <label>Ende<input required name="end" type="date" /></label>
+              <label class="inline-toggle form-toggle"><input name="excludeHolidays" type="checkbox" />Feiertage bei möglichen Terminen ausschließen</label>
+              <label class="inline-toggle form-toggle"><input name="excludeSchoolBreaks" type="checkbox" />Ferien bei möglichen Terminen ausschließen</label>
+              <button class="primary-button">Zeitraum speichern</button>
+            </form>
+
+            <section class="settings-panel">
+              <div class="panel-head">
+                <h2>Hallenzeiten</h2>
+                <button class="small-button" id="add-hall-slot" type="button">+ Zeit</button>
+              </div>
+              <div id="hall-slots-list" class="hall-slot-list"></div>
+            </section>
+
+            <section class="settings-panel data-panel">
+              <h2>Daten</h2>
+              <div class="data-actions">
+                <button class="primary-button" id="export-data" type="button">Datensicherung exportieren</button>
+                <label class="file-action">
+                  Datensicherung importieren
+                  <input id="import-data" type="file" accept="application/json,.json" />
+                </label>
+                <button class="small-button" id="export-players" type="button">Spieler CSV exportieren</button>
+                <button class="small-button" id="export-fixtures" type="button">Punktspiele CSV exportieren</button>
+                <button class="small-button" id="export-fixtures-calendar" type="button">Bestätigte Spiele Kalender exportieren</button>
+                <label class="file-action">
+                  Spieler CSV importieren
+                  <input id="import-players" type="file" accept=".csv,text/csv" />
+                </label>
+                <label class="file-action">
+                  Punktspiele CSV importieren
+                  <input id="import-fixtures" type="file" accept=".csv,text/csv" />
+                </label>
+              </div>
+              <div id="fixture-import-preview" class="import-preview" hidden></div>
+              <p class="form-note">Spieler-CSV: Name, QTTR, QTTR-Stichtag, Status, SPV, Saisonnotiz. Punktspiel-CSV: Mannschaft, Gegner, Ort, Status, Fixer Termin, Terminvorschläge.</p>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <section id="print-report" class="print-report" aria-label="Druckansicht Saisonplanung"></section>
+
+    <dialog id="entry-dialog">
+      <form method="dialog" id="entry-form">
+        <div class="dialog-head">
+          <h2>Neuer Eintrag</h2>
+          <button class="icon-button" type="button" id="close-dialog" aria-label="Schließen">&times;</button>
+        </div>
+        <label>
+          Art
+          <select id="entry-type">
+            <option value="player">Spieler</option>
+            <option value="team">Mannschaft</option>
+            <option value="fixture">Punktspiel</option>
+            <option value="block">Sperrtermin</option>
+          </select>
+        </label>
+        <div id="dynamic-fields"></div>
+        <menu>
+          <button class="danger-button" type="button" id="delete-entry" hidden>Löschen</button>
+          <span class="dialog-actions">
+            <button type="button" id="cancel-dialog">Abbrechen</button>
+            <button class="primary-button" id="save-entry" value="default">Speichern</button>
+          </span>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="player-paste-dialog">
+      <form method="dialog" id="player-paste-form">
+        <div class="dialog-head">
+          <h2>Spielerliste einfügen</h2>
+          <button class="icon-button" type="button" id="close-player-paste" aria-label="Schließen">&times;</button>
+        </div>
+        <label>
+          Spielerliste
+          <textarea id="player-paste-text" rows="10" placeholder="Sven Meyer 1540&#10;Guido Schulz 1498&#10;Marcel Klein 1421"></textarea>
+        </label>
+        <p class="form-note">Möglich sind einfache Zeilen mit Name und QTTR oder Spalten wie Name;QTTR;Status;SPV;Saisonnotiz.</p>
+        <menu>
+          <span></span>
+          <span class="dialog-actions">
+            <button type="button" id="cancel-player-paste">Abbrechen</button>
+            <button class="primary-button" id="preview-player-paste" type="submit">Vorschau erstellen</button>
+          </span>
+        </menu>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
+
+

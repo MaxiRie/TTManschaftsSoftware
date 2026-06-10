@@ -1,10 +1,56 @@
-﻿namespace TTManschatfsSoftware
+using Microsoft.EntityFrameworkCore;
+using TTManschatfsSoftware.Data;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddControllers();
+
+// Configure Entity Framework Core with SQLite
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? "Data Source=tischtennis.db";
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(connectionString)
+);
+
+// Add CORS for frontend
+builder.Services.AddCors(options =>
 {
-    internal class Program
+    options.AddPolicy("AllowFrontend", builder =>
     {
-        static void Main(string[] args)
-        {
-            Console.WriteLine("Hello, World!");
-        }
-    }
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
+var app = builder.Build();
+
+// Apply migrations and create database if needed
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await dbContext.Database.MigrateAsync();
 }
+
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+
+app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
+
+// Serve static files (HTML, CSS, JS)
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+// Fallback to index.html for SPA routing
+app.MapFallbackToFile("index.html");
+
+app.Run();
