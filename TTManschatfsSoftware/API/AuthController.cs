@@ -122,8 +122,10 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.UserName))
             return BadRequest("Benutzername ist erforderlich.");
 
-        var email = string.IsNullOrWhiteSpace(dto.Email) ? $"{dto.UserName}@local" : dto.Email.Trim();
-        if (await _context.AppUsers.AnyAsync(u => u.Id != id && (u.UserName == dto.UserName || u.Email == email)))
+        var email = string.IsNullOrWhiteSpace(dto.Email) ? string.Empty : dto.Email.Trim();
+        if (await _context.AppUsers.AnyAsync(u => u.Id != id && u.UserName == dto.UserName))
+            return Conflict("Benutzername existiert bereits.");
+        if (!string.IsNullOrWhiteSpace(email) && await _context.AppUsers.AnyAsync(u => u.Id != id && u.Email == email))
             return Conflict("Benutzername oder E-Mail existiert bereits.");
 
         user.UserName = dto.UserName.Trim();
@@ -176,9 +178,11 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(dto.UserName) || string.IsNullOrWhiteSpace(dto.Password))
             return BadRequest("Benutzername und Passwort sind erforderlich.");
 
-        var email = string.IsNullOrWhiteSpace(dto.Email) ? $"{dto.UserName}@local" : dto.Email.Trim();
-        if (await _context.AppUsers.AnyAsync(u => u.UserName == dto.UserName || u.Email == email))
-            return Conflict("Benutzername oder E-Mail existiert bereits.");
+        var email = string.IsNullOrWhiteSpace(dto.Email) ? string.Empty : dto.Email.Trim();
+        if (await _context.AppUsers.AnyAsync(u => u.UserName == dto.UserName))
+            return Conflict("Benutzername existiert bereits.");
+        if (!string.IsNullOrWhiteSpace(email) && await _context.AppUsers.AnyAsync(u => u.Email == email))
+            return Conflict("E-Mail existiert bereits.");
 
         var user = new AppUser
         {

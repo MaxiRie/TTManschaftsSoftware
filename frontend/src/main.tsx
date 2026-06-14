@@ -397,7 +397,6 @@ function App() {
   const [playerSearch, setPlayerSearch] = useState("");
   const [playerTeamFilter, setPlayerTeamFilter] = useState("all");
   const [playerStatusFilter, setPlayerStatusFilter] = useState("all");
-  const [fixtureTeamFilter, setFixtureTeamFilter] = useState("all");
   const [fixtureStatusFilter, setFixtureStatusFilter] = useState("all");
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(() => new Set());
 
@@ -676,13 +675,6 @@ function App() {
       .sort((a, b) => b.qttr - a.qttr);
   }, [players, playerSearch, playerTeamFilter, playerStatusFilter]);
 
-  const filteredFixtures = useMemo(() => {
-    return fixtures
-      .filter((fixture) => fixtureTeamFilter === "all" || fixture.teamId === fixtureTeamFilter)
-      .filter((fixture) => fixtureStatusFilter === "all" || normalizeStatus(fixture.status) === fixtureStatusFilter)
-      .sort((a, b) => (isoDate(a.confirmedDate) || isoDate(a.preferredDates[0])).localeCompare(isoDate(b.confirmedDate) || isoDate(b.preferredDates[0])));
-  }, [fixtures, fixtureTeamFilter, fixtureStatusFilter]);
-
   const warnings = useMemo(() => spvWarnings(teams, players), [teams, players]);
   const activePlayers = players.filter((player) => player.status === "aktiv").length;
 
@@ -807,11 +799,11 @@ function App() {
         )}
         {view === "fixtures" && (
           <FixturesPage
-            fixtures={filteredFixtures}
+            fixtures={fixtures}
             teams={teams}
+            currentUser={currentUser}
+            players={players}
             settings={settings}
-            teamFilter={fixtureTeamFilter}
-            setTeamFilter={setFixtureTeamFilter}
             statusFilter={fixtureStatusFilter}
             setStatusFilter={setFixtureStatusFilter}
             canCreate={canCreateForAnyFixtureTeam(currentUser, players)}
@@ -1107,9 +1099,9 @@ function TeamsPage(props: { teams: Team[]; players: Player[]; warnings: string[]
 function FixturesPage(props: {
   fixtures: Fixture[];
   teams: Team[];
+  currentUser: AuthUser;
+  players: Player[];
   settings: Settings;
-  teamFilter: string;
-  setTeamFilter: (value: string) => void;
   statusFilter: string;
   setStatusFilter: (value: string) => void;
   canCreate: boolean;
@@ -1118,15 +1110,31 @@ function FixturesPage(props: {
   remove: (id: string) => void;
 }) {
   const [selectedFixtureId, setSelectedFixtureId] = useState<string | null>(null);
-  const selectedFixture = props.fixtures.find((fixture) => fixture.id === selectedFixtureId) || null;
+  const player = props.players.find((item) => item.id === props.currentUser.playerId) || null;
+  const teamId = player?.teamId || null;
+  const teamFixtures = teamId ? props.fixtures.filter((fixture) => fixture.teamId === teamId) : [];
+  const filteredFixtures = teamFixtures
+    .filter((fixture) => props.statusFilter === "all" || normalizeStatus(fixture.status) === props.statusFilter)
+    .sort((a, b) => fixtureDate(a).localeCompare(fixtureDate(b)));
+  const months = monthRange(props.settings.seasonStart, props.settings.seasonEnd);
+  const [selectedMonth, setSelectedMonth] = useState(months[0] || new Date().toISOString().slice(0, 7));
+  const visibleMonth = months.includes(selectedMonth) ? selectedMonth : months[0] || new Date().toISOString().slice(0, 7);
+  const selectedFixture = filteredFixtures.find((fixture) => fixture.id === selectedFixtureId) || null;
+
+  if (!props.currentUser.playerId || !player) {
+    return <Panel title="Keine Spielerzuordnung"><Empty text="Dieser Account ist keinem Spieler zugeordnet. Deshalb koennen hier keine Punktspiele angezeigt werden." /></Panel>;
+  }
+
+  if (!teamId) {
+    return <Panel title="Keine Mannschaft"><Empty text="Der zugeordnete Spieler ist keiner Mannschaft zugeordnet. Deshalb koennen hier keine Punktspiele angezeigt werden." /></Panel>;
+  }
 
   return (
     <>
       <div className="toolbar">
         {props.canCreate && <button onClick={() => props.openDialog()}>Punktspiel erstellen</button>}
-        <select value={props.teamFilter} onChange={(event) => props.setTeamFilter(event.target.value)}>
-          <option value="all">Alle Mannschaften</option>
-          {props.teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+        <select value={visibleMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
+          {months.map((month) => <option key={month} value={month}>{formatMonth(`${month}-01`)}</option>)}
         </select>
         <select value={props.statusFilter} onChange={(event) => props.setStatusFilter(event.target.value)}>
           <option value="all">Alle Status</option>
@@ -1134,10 +1142,11 @@ function FixturesPage(props: {
         </select>
       </div>
       <FixtureCalendar
-        fixtures={props.fixtures}
+        fixtures={filteredFixtures}
         teams={props.teams}
         startDate={props.settings.seasonStart}
         endDate={props.settings.seasonEnd}
+        month={visibleMonth}
         onSelectFixture={setSelectedFixtureId}
       />
       {selectedFixture && (
@@ -1380,7 +1389,7 @@ function AccountsPage(props: { users: AuthUser[]; players: Player[]; roles: AppR
             {props.users.map((user) => (
               <tr key={user.id}>
                 <td>{user.userName}</td>
-                <td>{user.email}</td>
+                <td>{user.email || "-"}</td>
                 <td>{playerLabel(props.players, user.playerId)}</td>
                 <td><div className="lineup">{user.roles.map((role) => <span className="chip" key={role}>{displayRole(role)}</span>)}</div></td>
                 <td>{user.isActive ? "aktiv" : "gesperrt"}</td>
