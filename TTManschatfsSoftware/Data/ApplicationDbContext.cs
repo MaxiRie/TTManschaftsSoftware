@@ -19,6 +19,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<Season> Seasons { get; set; }
     public DbSet<HallSlot> HallSlots { get; set; }
     public DbSet<Availability> Availabilities { get; set; }
+    public DbSet<AppUser> AppUsers { get; set; }
+    public DbSet<AppRole> AppRoles { get; set; }
+    public DbSet<AppUserRole> AppUserRoles { get; set; }
+    public DbSet<Tournament> Tournaments { get; set; }
+    public DbSet<TournamentParticipant> TournamentParticipants { get; set; }
+    public DbSet<TournamentMatch> TournamentMatches { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -140,6 +146,130 @@ public class ApplicationDbContext : DbContext
                 .WithMany(f => f.Availabilities)
                 .HasForeignKey(a => a.FixtureId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.HasKey(u => u.Id);
+            entity.Property(u => u.UserName).IsRequired().HasMaxLength(100);
+            entity.Property(u => u.Email).IsRequired().HasMaxLength(256);
+            entity.Property(u => u.PasswordHash).IsRequired();
+            entity.HasIndex(u => u.UserName).IsUnique();
+            entity.HasIndex(u => u.Email).IsUnique();
+            entity.HasIndex(u => u.PlayerId);
+            entity.HasOne(u => u.Player)
+                .WithMany()
+                .HasForeignKey(u => u.PlayerId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<AppRole>(entity =>
+        {
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.Name).IsRequired().HasMaxLength(50);
+            entity.Property(r => r.Description).HasMaxLength(256);
+            entity.HasIndex(r => r.Name).IsUnique();
+            entity.HasData(
+                new AppRole
+                {
+                    Id = Guid.Parse("7a34b7f4-3c0c-4a84-b2d5-31e8060dc56a"),
+                    Name = "Admin",
+                    Description = "Vollzugriff auf Verwaltung, Benutzer und Stammdaten"
+                },
+                new AppRole
+                {
+                    Id = Guid.Parse("9f5b5611-cb77-43ac-a4e2-df39fbc30a8c"),
+                    Name = "Mannschaftsfuehrer",
+                    Description = "Punktspiele der eigenen Mannschaft anlegen und bearbeiten"
+                },
+                new AppRole
+                {
+                    Id = Guid.Parse("bfc0208f-3408-4a68-a5e5-321677f55eb8"),
+                    Name = "Spieler",
+                    Description = "Kalender, Punktspiele, Sperrtermine, Turniere und Mannschaften ansehen"
+                },
+                new AppRole
+                {
+                    Id = Guid.Parse("a9e78f7c-88f5-4b5d-bd58-5340371d25f2"),
+                    Name = "Vereinsleiter",
+                    Description = "Spieler, Saisonplanung, Uebersicht und Mannschaften verwalten"
+                },
+                new AppRole
+                {
+                    Id = Guid.Parse("a6788e41-1ec4-4c1f-8626-1771ac729fed"),
+                    Name = "Turnierleiter",
+                    Description = "Turniere erstellen und verwalten"
+                });
+        });
+
+        modelBuilder.Entity<AppUserRole>(entity =>
+        {
+            entity.HasKey(ur => new { ur.UserId, ur.RoleId });
+            entity.HasOne(ur => ur.User)
+                .WithMany(u => u.UserRoles)
+                .HasForeignKey(ur => ur.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(ur => ur.Role)
+                .WithMany(r => r.UserRoles)
+                .HasForeignKey(ur => ur.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Tournament>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).IsRequired().HasMaxLength(256);
+            entity.Property(t => t.Mode).IsRequired().HasMaxLength(50).HasDefaultValue("Gruppenphase");
+            entity.Property(t => t.Status).IsRequired().HasMaxLength(50).HasDefaultValue("geplant");
+            entity.HasIndex(t => t.SeasonId);
+            entity.HasOne(t => t.Season)
+                .WithMany()
+                .HasForeignKey(t => t.SeasonId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<TournamentParticipant>(entity =>
+        {
+            entity.HasKey(tp => tp.Id);
+            entity.Property(tp => tp.GroupName).HasMaxLength(100);
+            entity.HasIndex(tp => new { tp.TournamentId, tp.PlayerId }).IsUnique();
+            entity.HasIndex(tp => tp.PlayerId);
+            entity.HasOne(tp => tp.Tournament)
+                .WithMany(t => t.Participants)
+                .HasForeignKey(tp => tp.TournamentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(tp => tp.Player)
+                .WithMany()
+                .HasForeignKey(tp => tp.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<TournamentMatch>(entity =>
+        {
+            entity.HasKey(tm => tm.Id);
+            entity.Property(tm => tm.Status).IsRequired().HasMaxLength(50).HasDefaultValue("offen");
+            entity.Property(tm => tm.Score).HasMaxLength(100);
+            entity.HasIndex(tm => tm.TournamentId);
+            entity.HasIndex(tm => tm.Player1Id);
+            entity.HasIndex(tm => tm.Player2Id);
+            entity.HasIndex(tm => tm.WinnerPlayerId);
+            entity.HasIndex(tm => new { tm.TournamentId, tm.Round, tm.MatchNumber }).IsUnique();
+            entity.HasOne(tm => tm.Tournament)
+                .WithMany(t => t.Matches)
+                .HasForeignKey(tm => tm.TournamentId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(tm => tm.Player1)
+                .WithMany()
+                .HasForeignKey(tm => tm.Player1Id)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(tm => tm.Player2)
+                .WithMany()
+                .HasForeignKey(tm => tm.Player2Id)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(tm => tm.WinnerPlayer)
+                .WithMany()
+                .HasForeignKey(tm => tm.WinnerPlayerId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

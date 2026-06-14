@@ -6,6 +6,8 @@ public static class DataSeeder
 {
     public static async Task SeedDataAsync(ApplicationDbContext context)
     {
+        await SeedRolesAsync(context);
+
         // Only seed if database is empty
         if (context.Seasons.Any())
             return;
@@ -166,6 +168,26 @@ public static class DataSeeder
             };
             context.FixtureDates.AddRange(fixtureDates);
         }
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task SeedRolesAsync(ApplicationDbContext context)
+    {
+        var roles = new[]
+        {
+            new AppRole { Name = "Admin", Description = "Vollzugriff auf Verwaltung, Benutzer und Stammdaten" },
+            new AppRole { Name = "Spieler", Description = "Kalender, Punktspiele, Sperrtermine, Turniere und Mannschaften ansehen" },
+            new AppRole { Name = "Mannschaftsfuehrer", Description = "Punktspiele der eigenen Mannschaft anlegen und bearbeiten" },
+            new AppRole { Name = "Vereinsleiter", Description = "Spieler, Saisonplanung, Uebersicht und Mannschaften verwalten" },
+            new AppRole { Name = "Turnierleiter", Description = "Turniere erstellen und verwalten" }
+        };
+
+        foreach (var role in roles)
+        {
+            if (!context.AppRoles.Any(r => r.Name == role.Name))
+                context.AppRoles.Add(role);
+        }
+
         await context.SaveChangesAsync();
     }
 }

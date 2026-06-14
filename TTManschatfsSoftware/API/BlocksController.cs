@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TTManschatfsSoftware.Data;
 using TTManschatfsSoftware.Domain;
+using TTManschatfsSoftware.DTOs;
 
 namespace TTManschatfsSoftware.API;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.All)]
 public class BlocksController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -17,25 +20,46 @@ public class BlocksController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Block>>> GetAll()
+    public async Task<ActionResult<IEnumerable<BlockDto>>> GetAll()
     {
-        return Ok(await _context.Blocks
+        var query = _context.Blocks
             .Include(b => b.Player)
-            .ToListAsync());
+            .AsQueryable();
+
+        if (!User.IsClubManager())
+        {
+            var playerId = User.PlayerId();
+            query = query.Where(block => playerId.HasValue && block.PlayerId == playerId.Value);
+        }
+
+        var blocks = await query
+            .OrderBy(b => b.Date)
+            .ToListAsync();
+
+        return Ok(blocks.Select(MapToDto).ToList());
     }
 
     [HttpGet("player/{playerId}")]
-    public async Task<ActionResult<IEnumerable<Block>>> GetByPlayer(Guid playerId)
+    public async Task<ActionResult<IEnumerable<BlockDto>>> GetByPlayer(Guid playerId)
     {
-        return Ok(await _context.Blocks
+        if (!User.IsClubManager() && User.PlayerId() != playerId)
+            return Forbid();
+
+        var blocks = await _context.Blocks
+            .Include(b => b.Player)
             .Where(b => b.PlayerId == playerId)
             .OrderBy(b => b.Date)
-            .ToListAsync());
+            .ToListAsync();
+
+        return Ok(blocks.Select(MapToDto).ToList());
     }
 
     [HttpPost]
-    public async Task<ActionResult<Block>> Create([FromBody] CreateBlockDto dto)
+    public async Task<ActionResult<BlockDto>> Create([FromBody] CreateBlockDto dto)
     {
+        if (!User.IsClubManager() && User.PlayerId() != dto.PlayerId)
+            return Forbid();
+
         var block = new Block
         {
             PlayerId = dto.PlayerId,
@@ -45,11 +69,15 @@ public class BlocksController : ControllerBase
 
         _context.Blocks.Add(block);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = block.Id }, block);
+        var created = await _context.Blocks
+            .Include(b => b.Player)
+            .FirstAsync(b => b.Id == block.Id);
+
+        return CreatedAtAction(nameof(GetById), new { id = block.Id }, MapToDto(created));
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<Block>> GetById(Guid id)
+    public async Task<ActionResult<BlockDto>> GetById(Guid id)
     {
         var block = await _context.Blocks
             .Include(b => b.Player)
@@ -58,7 +86,7 @@ public class BlocksController : ControllerBase
         if (block == null)
             return NotFound();
 
-        return Ok(block);
+        return Ok(MapToDto(block));
     }
 
     [HttpDelete("{id}")]
@@ -68,9 +96,25 @@ public class BlocksController : ControllerBase
         if (block == null)
             return NotFound();
 
+        if (!User.IsClubManager() && User.PlayerId() != block.PlayerId)
+            return Forbid();
+
         _context.Blocks.Remove(block);
         await _context.SaveChangesAsync();
         return NoContent();
+    }
+
+    private static BlockDto MapToDto(Block block)
+    {
+        return new BlockDto
+        {
+            Id = block.Id,
+            PlayerId = block.PlayerId,
+            PlayerName = block.Player?.Name ?? string.Empty,
+            Date = block.Date,
+            Reason = block.Reason,
+            CreatedAt = block.CreatedAt
+        };
     }
 }
 

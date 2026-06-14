@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TTManschatfsSoftware.Data;
 using TTManschatfsSoftware.Data.Repositories;
@@ -8,6 +9,7 @@ namespace TTManschatfsSoftware.API;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.All)]
 public class TeamsController : ControllerBase
 {
     private readonly TeamRepository _teamRepository;
@@ -36,6 +38,7 @@ public class TeamsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<ActionResult<TeamDto>> Create([FromBody] CreateTeamDto dto)
     {
         var team = new Team
@@ -51,6 +54,7 @@ public class TeamsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<ActionResult<TeamDto>> Update(Guid id, [FromBody] UpdateTeamDto dto)
     {
         var team = await _teamRepository.GetByIdAsync(id);
@@ -70,6 +74,7 @@ public class TeamsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<IActionResult> Delete(Guid id)
     {
         var success = await _teamRepository.DeleteAsync(id);
@@ -79,6 +84,7 @@ public class TeamsController : ControllerBase
     }
 
     [HttpPost("{teamId}/players/{playerId}")]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<IActionResult> AddPlayer(Guid teamId, Guid playerId)
     {
         await _teamRepository.AddPlayerAsync(teamId, playerId);
@@ -86,6 +92,7 @@ public class TeamsController : ControllerBase
     }
 
     [HttpDelete("{teamId}/players/{playerId}")]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<IActionResult> RemovePlayer(Guid teamId, Guid playerId)
     {
         await _teamRepository.RemovePlayerAsync(teamId, playerId);

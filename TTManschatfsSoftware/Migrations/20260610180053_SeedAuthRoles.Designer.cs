@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TTManschatfsSoftware.Data;
@@ -11,9 +12,11 @@ using TTManschatfsSoftware.Data;
 namespace TTManschatfsSoftware.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610180053_SeedAuthRoles")]
+    partial class SeedAuthRoles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -70,26 +73,14 @@ namespace TTManschatfsSoftware.Migrations
                         new
                         {
                             Id = new Guid("9f5b5611-cb77-43ac-a4e2-df39fbc30a8c"),
-                            Description = "Punktspiele der eigenen Mannschaft anlegen und bearbeiten",
-                            Name = "Mannschaftsfuehrer"
+                            Description = "Pflege von Teams, Saisonplanung und Turnieren",
+                            Name = "Trainer"
                         },
                         new
                         {
                             Id = new Guid("bfc0208f-3408-4a68-a5e5-321677f55eb8"),
-                            Description = "Kalender, Punktspiele, Sperrtermine, Turniere und Mannschaften ansehen",
+                            Description = "Eigene Verfuegbarkeit und Einsicht in Planung",
                             Name = "Spieler"
-                        },
-                        new
-                        {
-                            Id = new Guid("a9e78f7c-88f5-4b5d-bd58-5340371d25f2"),
-                            Description = "Spieler, Saisonplanung, Uebersicht und Mannschaften verwalten",
-                            Name = "Vereinsleiter"
-                        },
-                        new
-                        {
-                            Id = new Guid("a6788e41-1ec4-4c1f-8626-1771ac729fed"),
-                            Description = "Turniere erstellen und verwalten",
-                            Name = "Turnierleiter"
                         });
                 });
 

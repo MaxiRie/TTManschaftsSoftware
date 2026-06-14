@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TTManschatfsSoftware.Data;
@@ -8,6 +9,7 @@ namespace TTManschatfsSoftware.API;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.All)]
 public class SeasonsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -35,6 +37,7 @@ public class SeasonsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<ActionResult<SeasonDto>> Create([FromBody] CreateSeasonDto dto)
     {
         var season = new Season
@@ -52,6 +55,7 @@ public class SeasonsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<ActionResult<SeasonDto>> Update(Guid id, [FromBody] CreateSeasonDto dto)
     {
         var season = await _context.Seasons.FindAsync(id);
@@ -71,6 +75,7 @@ public class SeasonsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<IActionResult> Delete(Guid id)
     {
         var season = await _context.Seasons.FindAsync(id);

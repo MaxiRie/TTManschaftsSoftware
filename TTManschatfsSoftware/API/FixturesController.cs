@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TTManschatfsSoftware.Data;
@@ -8,7 +9,8 @@ namespace TTManschatfsSoftware.API;
 
 [ApiController]
 [Route("api/[controller]")]
-public class FixturesController : ControllerBase
+[Authorize(Roles = Roles.All)]
+public class FixturesController : AuthControllerBase
 {
     private readonly ApplicationDbContext _context;
 
@@ -47,6 +49,9 @@ public class FixturesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<FixtureDto>> Create([FromBody] CreateFixtureDto dto)
     {
+        if (!await CanManageFixtureTeam(_context, dto.TeamId))
+            return Forbid();
+
         var fixture = new Fixture
         {
             TeamId = dto.TeamId,
@@ -83,6 +88,9 @@ public class FixturesController : ControllerBase
         if (fixture == null)
             return NotFound();
 
+        if (!await CanManageFixtureTeam(_context, fixture.TeamId))
+            return Forbid();
+
         if (!string.IsNullOrEmpty(dto.Opponent))
             fixture.Opponent = dto.Opponent;
         if (!string.IsNullOrEmpty(dto.Venue))
@@ -107,6 +115,9 @@ public class FixturesController : ControllerBase
         var fixture = await _context.Fixtures.FindAsync(id);
         if (fixture == null)
             return NotFound();
+
+        if (!await CanManageFixtureTeam(_context, fixture.TeamId))
+            return Forbid();
 
         _context.Fixtures.Remove(fixture);
         await _context.SaveChangesAsync();

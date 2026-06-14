@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TTManschatfsSoftware.Data;
 using TTManschatfsSoftware.Data.Repositories;
@@ -8,6 +9,7 @@ namespace TTManschatfsSoftware.API;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.All)]
 public class PlayersController : ControllerBase
 {
     private readonly PlayerRepository _playerRepository;
@@ -34,6 +36,7 @@ public class PlayersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<ActionResult<PlayerDto>> Create([FromBody] CreatePlayerDto dto)
     {
         var player = new Player
@@ -50,6 +53,7 @@ public class PlayersController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<ActionResult<PlayerDto>> Update(Guid id, [FromBody] UpdatePlayerDto dto)
     {
         var player = await _playerRepository.GetByIdAsync(id);
@@ -75,6 +79,7 @@ public class PlayersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = Roles.ClubManagement)]
     public async Task<IActionResult> Delete(Guid id)
     {
         var success = await _playerRepository.DeleteAsync(id);

@@ -1,10 +1,17 @@
 using Microsoft.EntityFrameworkCore;
+using TTManschatfsSoftware.API;
 using TTManschatfsSoftware.Data;
+using TTManschatfsSoftware.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
+builder.Services.AddScoped<PasswordHasher>();
+builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddAuthentication("Bearer")
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, JwtAuthenticationHandler>("Bearer", null);
+builder.Services.AddAuthorization();
 
 // Configure Entity Framework Core with PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -31,6 +38,17 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await dbContext.Database.MigrateAsync();
+    var importSvenIndex = Array.IndexOf(args, "--import-sven");
+    if (importSvenIndex >= 0)
+    {
+        var importPath = importSvenIndex + 1 < args.Length
+            ? args[importSvenIndex + 1]
+            : @"C:\Users\maxim\Desktop\Projekt\SvenProjekt\tischtennis-spartenplaner\data\spartenplaner.json";
+        await SvenProjectImporter.ImportAsync(dbContext, importPath);
+        Console.WriteLine($"Sven project data imported from {importPath}");
+        return;
+    }
+
     await DataSeeder.SeedDataAsync(dbContext);
 }
 
@@ -47,6 +65,7 @@ app.UseCors("AllowFrontend");
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
