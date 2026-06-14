@@ -5,6 +5,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UserSecretsId>ttmannschaftssoftware-local-dev</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
