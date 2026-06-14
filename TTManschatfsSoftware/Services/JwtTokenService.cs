@@ -85,7 +85,9 @@ public class JwtTokenService
 
     private string GetSecret()
     {
-        var secret = _configuration["Jwt:SecretKey"] ?? Environment.GetEnvironmentVariable("TTMANNSCHAFT_JWT_SECRET");
+        var secret = _configuration["Jwt:SecretKey"];
+        if (string.IsNullOrWhiteSpace(secret))
+            secret = Environment.GetEnvironmentVariable("TTMANNSCHAFT_JWT_SECRET");
         if (string.IsNullOrWhiteSpace(secret))
             throw new InvalidOperationException("JWT secret is missing. Set Jwt:SecretKey or TTMANNSCHAFT_JWT_SECRET.");
 
