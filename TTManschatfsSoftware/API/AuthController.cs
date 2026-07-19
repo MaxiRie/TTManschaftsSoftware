@@ -64,11 +64,33 @@ public class AuthController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<UserDto>> Me()
     {
-        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (!Guid.TryParse(userIdClaim, out var userId))
+        if (!TryGetCurrentUserId(out var userId))
             return Unauthorized();
 
         return await GetUser(userId);
+    }
+
+    [Authorize]
+    [HttpPut("me/password")]
+    public async Task<IActionResult> ChangeOwnPassword([FromBody] ChangePasswordDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CurrentPassword) || string.IsNullOrWhiteSpace(dto.NewPassword))
+            return BadRequest("Aktuelles und neues Passwort sind erforderlich.");
+
+        if (!TryGetCurrentUserId(out var userId))
+            return Unauthorized();
+
+        var user = await _context.AppUsers.FindAsync(userId);
+        if (user == null || !user.IsActive)
+            return Unauthorized();
+
+        if (!_passwordHasher.Verify(dto.CurrentPassword, user.PasswordHash))
+            return BadRequest("Aktuelles Passwort ist nicht korrekt.");
+
+        user.PasswordHash = _passwordHasher.Hash(dto.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 
     [Authorize(Roles = "Admin")]
@@ -171,6 +193,12 @@ public class AuthController : ControllerBase
             IsActive = user.IsActive,
             Roles = user.UserRoles.Select(ur => ur.Role?.Name).OfType<string>().ToList()
         };
+    }
+
+    private bool TryGetCurrentUserId(out Guid userId)
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        return Guid.TryParse(userIdClaim, out userId);
     }
 
     private async Task<ActionResult<UserDto>> CreateUser(RegisterUserDto dto, List<string> roleNames)

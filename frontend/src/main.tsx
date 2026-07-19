@@ -2,7 +2,7 @@ import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
-type ViewKey = "dashboard" | "players" | "season" | "teams" | "calendar" | "fixtures" | "blocks" | "tournaments" | "accounts" | "settings";
+type ViewKey = "dashboard" | "players" | "season" | "teams" | "calendar" | "fixtures" | "blocks" | "tournaments" | "accounts" | "settings" | "profile";
 
 type Player = {
   id: string;
@@ -250,6 +250,13 @@ function dateRange(start: string, end: string) {
   return result;
 }
 
+function inclusiveDateRange(start: string, end: string) {
+  if (!start) return [];
+  const normalizedEnd = end || start;
+  const [from, to] = start <= normalizedEnd ? [start, normalizedEnd] : [normalizedEnd, start];
+  return dateRange(from, to);
+}
+
 function monthRange(start: string, end: string) {
   const result: string[] = [];
   const cursor = new Date(`${start.slice(0, 7)}-01T00:00:00`);
@@ -310,6 +317,17 @@ function teamLabel(teams: Team[], id?: string | null) {
 
 function playerLabel(players: Player[], id?: string | null) {
   return players.find((player) => player.id === id)?.name ?? "Unbekannt";
+}
+
+function teamNumber(team: Team) {
+  const match = team.name.match(/\d+/);
+  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
+}
+
+function compareTeamsByNumber(a: Team, b: Team) {
+  const numberDiff = teamNumber(a) - teamNumber(b);
+  if (numberDiff !== 0) return numberDiff;
+  return a.name.localeCompare(b.name, "de", { numeric: true, sensitivity: "base" });
 }
 
 function hasRole(user: AuthUser | null, role: string) {
@@ -531,14 +549,16 @@ function App() {
   }
 
   async function saveBlock(data: FormData) {
-    const payload = {
-      playerId: String(data.get("playerId") || ""),
-      date: toApiDate(String(data.get("date") || "")),
-      reason: String(data.get("reason") || "Sperrtermin")
-    };
-    await api.send<Block>("/api/blocks", "POST", payload);
+    const playerId = String(data.get("playerId") || "");
+    const reason = String(data.get("reason") || "Sperrtermin");
+    const dates = inclusiveDateRange(String(data.get("dateStart") || data.get("date") || ""), String(data.get("dateEnd") || ""));
+    await Promise.all(dates.map((date) => api.send<Block>("/api/blocks", "POST", {
+      playerId,
+      date: toApiDate(date),
+      reason
+    })));
     await refresh();
-    showToast("Sperrtermin gespeichert");
+    showToast(dates.length === 1 ? "Sperrtermin gespeichert" : `${dates.length} Sperrtermine gespeichert`);
   }
 
   async function saveSeason(data: FormData) {
@@ -602,6 +622,17 @@ function App() {
     setUsers(usersResult);
     setRoles(rolesResult);
     showToast("Account gespeichert");
+  }
+
+  async function changePassword(data: FormData) {
+    const currentPassword = String(data.get("currentPassword") || "");
+    const newPassword = String(data.get("newPassword") || "");
+    const confirmPassword = String(data.get("confirmPassword") || "");
+    if (newPassword !== confirmPassword) {
+      throw new Error("Die neuen Passwoerter stimmen nicht ueberein.");
+    }
+    await api.send("/api/auth/me/password", "PUT", { currentPassword, newPassword });
+    showToast("Passwort geaendert");
   }
 
   async function handleDialogSubmit(event: FormEvent<HTMLFormElement>) {
@@ -690,6 +721,7 @@ function App() {
     { key: "accounts", label: "Accounts" },
     { key: "settings", label: "Einstellungen" }
   ];
+  const profileNav = { key: "profile" as ViewKey, label: "Nutzer-Einstellungen" };
   const visibleNav = nav.filter((item) => canView(currentUser, item.key));
   const currentPlayer = players.find((player) => player.id === currentUser?.playerId) || null;
 
@@ -717,20 +749,25 @@ function App() {
             <span>{settings.seasonStart.slice(0, 4)}/{settings.seasonEnd.slice(2, 4)}</span>
           </div>
         </div>
-        <nav className="nav">
-          {visibleNav.map((item) => (
-            <button className={view === item.key ? "active" : ""} key={item.key} onClick={() => setView(item.key)}>
-              {item.label}
-            </button>
-          ))}
-        </nav>
+        <div className="sidebar-nav">
+          <nav className="nav">
+            {visibleNav.map((item) => (
+              <button className={view === item.key ? "active" : ""} key={item.key} onClick={() => setView(item.key)}>
+                {item.label}
+              </button>
+            ))}
+          </nav>
+          <button className={`nav-item profile-nav-item ${view === profileNav.key ? "active" : ""}`} onClick={() => setView(profileNav.key)}>
+            {profileNav.label}
+          </button>
+        </div>
       </aside>
 
       <section className="main">
         <header className="topbar">
           <div>
             <p className="eyebrow">Tischtennissparte</p>
-            <h1>{nav.find((item) => item.key === view)?.label}</h1>
+            <h1>{[...nav, profileNav].find((item) => item.key === view)?.label}</h1>
           </div>
           <div className="top-actions">
             <span className="muted-note">{currentUser.userName}</span>
@@ -784,7 +821,7 @@ function App() {
           />
         )}
         {view === "season" && <SeasonPage teams={teams} players={players} fixtures={fixtures} blocks={blocks} warnings={warnings} settings={settings} setView={setView} />}
-        {view === "teams" && <TeamsPage teams={teams} players={players} warnings={warnings} canManage={isClubManager(currentUser)} openDialog={(id) => setDialog({ kind: "team", id })} remove={(id) => remove("team", id)} />}
+        {view === "teams" && <TeamsPage teams={teams} players={players} canManage={isClubManager(currentUser)} openDialog={(id) => setDialog({ kind: "team", id })} remove={(id) => remove("team", id)} />}
         {view === "calendar" && (
           <CalendarPage
             teams={teams}
@@ -815,6 +852,7 @@ function App() {
         {view === "blocks" && <BlocksPage blocks={blocks} players={players} currentPlayer={currentPlayer} canManageAll={isClubManager(currentUser)} remove={(id) => remove("block", id)} openDialog={() => setDialog({ kind: "block" })} />}
         {view === "tournaments" && <TournamentsPage tournaments={visibleTournaments(tournaments, currentUser)} canManage={isTournamentManager(currentUser)} openDialog={() => setDialog({ kind: "tournament" })} />}
         {view === "accounts" && <AccountsPage users={users} players={players} roles={roles} openDialog={(id) => setDialog({ kind: "user", id })} />}
+        {view === "profile" && <ProfileSettingsPage currentUser={currentUser} currentPlayer={currentPlayer} changePassword={changePassword} />}
         {view === "settings" && (
           <SettingsPage
             settings={settings}
@@ -863,6 +901,7 @@ function defaultDialogForView(view: ViewKey): DialogState {
 
 function canView(user: AuthUser | null, view: ViewKey) {
   if (!user) return false;
+  if (view === "profile") return true;
   if (isAdmin(user)) return true;
   if (["teams", "calendar", "fixtures", "blocks", "tournaments"].includes(view)) return true;
   if (["dashboard", "players", "season"].includes(view)) return hasRole(user, "Vereinsleiter");
@@ -881,6 +920,45 @@ function canCreateInView(user: AuthUser | null, view: ViewKey, players: Player[]
   if (view === "teams" || view === "players" || view === "season") return isClubManager(user);
   if (view === "tournaments") return isTournamentManager(user);
   return false;
+}
+
+function ProfileSettingsPage(props: { currentUser: AuthUser; currentPlayer: Player | null; changePassword: (data: FormData) => Promise<void> }) {
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage("");
+    try {
+      await props.changePassword(new FormData(event.currentTarget));
+      event.currentTarget.reset();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Passwort konnte nicht geaendert werden.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="settings-layout">
+      <Panel title="Account">
+        <div className="list-row"><span>Benutzername</span><strong>{props.currentUser.userName}</strong></div>
+        <div className="list-row"><span>E-Mail</span><strong>{props.currentUser.email || "-"}</strong></div>
+        <div className="list-row"><span>Spieler</span><strong>{props.currentPlayer?.name || "-"}</strong></div>
+        <div className="lineup">{props.currentUser.roles.map((role) => <span className="chip" key={role}>{displayRole(role)}</span>)}</div>
+      </Panel>
+      <Panel title="Passwort">
+        <form className="settings-form" onSubmit={submit}>
+          {message && <div className="inline-error">{message}</div>}
+          <label>Aktuelles Passwort<input required name="currentPassword" type="password" autoComplete="current-password" /></label>
+          <label>Neues Passwort<input required name="newPassword" type="password" autoComplete="new-password" minLength={6} /></label>
+          <label>Neues Passwort wiederholen<input required name="confirmPassword" type="password" autoComplete="new-password" minLength={6} /></label>
+          <button className="primary-button" disabled={saving}>{saving ? "Speichern..." : "Passwort aendern"}</button>
+        </form>
+      </Panel>
+    </section>
+  );
 }
 
 function visibleTournaments(tournaments: Tournament[], user: AuthUser | null) {
@@ -1058,17 +1136,16 @@ function PlayersPage(props: {
   );
 }
 
-function TeamsPage(props: { teams: Team[]; players: Player[]; warnings: string[]; canManage: boolean; openDialog: (id?: string) => void; remove: (id: string) => void }) {
+function TeamsPage(props: { teams: Team[]; players: Player[]; canManage: boolean; openDialog: (id?: string) => void; remove: (id: string) => void }) {
+  const teams = [...props.teams].sort(compareTeamsByNumber);
+
   return (
     <>
       {props.canManage && <div className="toolbar">
         <button onClick={() => props.openDialog()}>Mannschaft erstellen</button>
       </div>}
-      <Panel title="TTVN-Pruefung">
-        {props.warnings.length ? props.warnings.map((warning) => <div className="risk-row" key={warning}>{warning}</div>) : <Empty text="Alle Regeln im Zielbereich" />}
-      </Panel>
       <section className="team-grid">
-        {props.teams.map((team) => {
+        {teams.map((team) => {
           const roster = teamPlayers(props.players, team.id);
           return (
             <article className="team-card" key={team.id}>
@@ -1528,7 +1605,8 @@ function EntryDialog(props: {
         {kind === "block" && (
           <>
             <label>Spieler<select required name="playerId" defaultValue={props.currentUser.playerId || ""}>{blockPlayers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-            <label>Datum<input required name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
+            <label>Von<input required name="dateStart" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
+            <label>Bis<input required name="dateEnd" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></label>
             <label>Grund<input name="reason" defaultValue="Sperrtermin" /></label>
           </>
         )}

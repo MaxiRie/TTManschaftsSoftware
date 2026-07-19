@@ -118,6 +118,9 @@ textarea {
 }
 
 .sidebar {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(180deg, #14344a 0%, #1b4056 100%);
   color: white;
   padding: 24px;
@@ -151,6 +154,14 @@ textarea {
   gap: 8px;
 }
 
+.sidebar-nav {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .nav button {
   justify-content: flex-start;
   border: 0;
@@ -161,6 +172,20 @@ textarea {
 
 .nav button.active,
 .nav button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.profile-nav-item {
+  justify-content: flex-start;
+  margin-top: auto;
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  text-align: left;
+}
+
+.profile-nav-item.active,
+.profile-nav-item:hover {
   background: rgba(255, 255, 255, 0.2);
 }
 
@@ -560,6 +585,29 @@ th {
   margin-bottom: 8px;
 }
 
+.settings-form {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-form label {
+  display: grid;
+  gap: 6px;
+  color: #344054;
+  font-weight: 700;
+}
+
+.settings-form button {
+  justify-self: start;
+}
+
+.inline-error {
+  border-radius: 7px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  padding: 10px;
+}
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -629,6 +677,7 @@ menu span {
 
   .sidebar {
     position: static;
+    min-height: auto;
   }
 
   .nav {

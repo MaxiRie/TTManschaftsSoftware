@@ -423,6 +423,14 @@ function dateRange(start, end) {
   return dates;
 }
 
+function inclusiveDateRange(start, end) {
+  if (!start) return [];
+  const normalizedEnd = end || start;
+  const from = start <= normalizedEnd ? start : normalizedEnd;
+  const to = start <= normalizedEnd ? normalizedEnd : start;
+  return dateRange(from, to);
+}
+
 function offsetIsoDate(value, days) {
   const date = parseIsoDate(value);
   date.setDate(date.getDate() + days);
@@ -596,8 +604,8 @@ function teamPlayers(teamId) {
 }
 
 function teamSortNumber(team) {
-  const match = team.name.match(/^\s*(\d+)\./);
-  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+  const match = team.name.match(/\d+/);
+  return match ? Number(match[0]) : Number.MAX_SAFE_INTEGER;
 }
 
 function orderedTeams() {
@@ -606,6 +614,8 @@ function orderedTeams() {
     .sort((a, b) => {
       const numberDiff = teamSortNumber(a.team) - teamSortNumber(b.team);
       if (numberDiff !== 0) return numberDiff;
+      const nameDiff = a.team.name.localeCompare(b.team.name, "de", { numeric: true, sensitivity: "base" });
+      if (nameDiff !== 0) return nameDiff;
       return a.index - b.index;
     })
     .map((item) => item.team);
@@ -1597,7 +1607,6 @@ function renderPlanningCalendarRisks() {
 }
 
 function renderTeams() {
-  renderTtvnChecks();
   if (!state.teams.length) {
     $("#teams-list").innerHTML = emptyState("Noch keine Mannschaften", "Erstelle die erste Mannschaft und ordne dort die Spieler zu.", "Mannschaft erstellen", "team");
     return;
@@ -1611,7 +1620,6 @@ function renderTeams() {
       const avg = Math.round(orderedPlayers.reduce((sum, player) => sum + player.qttr, 0) / Math.max(1, orderedPlayers.length));
       const sizeClass = orderedPlayers.length < requiredPlayers ? "danger" : "ok";
       const sizeLabel = orderedPlayers.length < 4 ? "zu klein" : `${orderedPlayers.length} Spieler`;
-      const teamCheck = ttvnTeamCheck(team.id);
       return `<article class="team-card">
         <div class="card-head">
           <div>
@@ -1623,7 +1631,6 @@ function renderTeams() {
             <button class="small-button edit-team" data-team-id="${team.id}">Bearbeiten</button>
           </div>
         </div>
-        ${teamCheck.warnings.length ? `<div class="rule-warning">${teamCheck.warnings.map(escapeHtml).join("<br>")}</div>` : `<div class="rule-ok">TTVN-Toleranz intern unauffällig.</div>`}
         <div class="line-list">
           ${orderedPlayers
             .map((player, index) => `<div class="line-item"><span>${index + 1}. ${escapeHtml(player.name)}</span>${renderSpvBadge(team.id, player)}<strong>${player.qttr}</strong></div>`)
@@ -3021,7 +3028,8 @@ function renderDynamicFields() {
       <div id="fixture-date-preview" class="fixture-date-preview"></div>
       <div id="fixture-date-chips" class="fixture-date-chips"></div>`,
     block: `<label>Spieler<select name="playerId">${playerOptions}</select></label>
-      <label>Datum<input required name="date" type="date" value="${block ? block.date : ""}"></label>
+      <label>Von<input required name="dateStart" type="date" value="${block ? block.date : ""}"></label>
+      <label>Bis<input required name="dateEnd" type="date" value="${block ? block.date : ""}"></label>
       <label>Grund<input required name="reason" value="${block ? escapeHtml(block.reason) : ""}" placeholder="Urlaub, Dienst, Turnier"></label>`
   };
 
@@ -3412,13 +3420,15 @@ function addEntry(form) {
   if (type === "block") {
     const blockId = editingBlockId || id;
     const existingBlock = state.blocks.find((blockItem) => blockItem.id === blockId);
-    const blockData = { id: blockId, playerId: data.playerId, date: data.date, reason: data.reason };
+    const blockDates = inclusiveDateRange(data.dateStart || data.date, data.dateEnd);
+    const blockData = { id: blockId, playerId: data.playerId, date: blockDates[0], reason: data.reason };
     if (existingBlock) {
       Object.assign(existingBlock, blockData);
-      addActivity("Sperrtermin", `${playerName(blockData.playerId)} geändert`, `${formatShortDate(blockData.date)} - ${blockData.reason || "ohne Grund"}`);
+      blockDates.slice(1).forEach((date, index) => state.blocks.push({ id: `b${Date.now()}${index}`, playerId: data.playerId, date, reason: data.reason }));
+      addActivity("Sperrtermin", `${playerName(blockData.playerId)} geändert`, `${blockDates.length} Termin${blockDates.length === 1 ? "" : "e"} - ${blockData.reason || "ohne Grund"}`);
     } else {
-      state.blocks.push(blockData);
-      addActivity("Sperrtermin", `${playerName(blockData.playerId)} angelegt`, `${formatShortDate(blockData.date)} - ${blockData.reason || "ohne Grund"}`);
+      blockDates.forEach((date, index) => state.blocks.push({ id: `b${Date.now()}${index}`, playerId: data.playerId, date, reason: data.reason }));
+      addActivity("Sperrtermin", `${playerName(blockData.playerId)} angelegt`, `${blockDates.length} Termin${blockDates.length === 1 ? "" : "e"} - ${blockData.reason || "ohne Grund"}`);
     }
   }
 
